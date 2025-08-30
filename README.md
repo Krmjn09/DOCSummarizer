@@ -1,2 +1,2 @@
-# DOCSummarizer Capstone
+# DOCSummarizer 
 

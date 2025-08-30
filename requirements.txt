@@ -1,0 +1,10 @@
+streamlit
+google-cloud-aiplatform
+google-generativeai
+PyPDF2
+PyMuPDF
+python-docx
+python-dotenv
+Pillow
+pytesseract
+opencv-python
