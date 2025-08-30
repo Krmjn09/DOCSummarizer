@@ -19,8 +19,32 @@ load_dotenv()
 class LegalDocumentAI:
     def __init__(self):
         self.setup_google_cloud()
-        
+    
     def setup_google_cloud(self):
+        """Initialize Google Cloud services"""
+        try:
+            if "GCP_SERVICE_ACCOUNT" in st.secrets:
+                key_dict = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
+                credentials = service_account.Credentials.from_service_account_info(key_dict)
+    
+                # Configure Gemini
+                genai.configure(credentials=credentials)
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
+    
+                # Initialize Vertex AI (use key_dict directly, no file read)
+                aiplatform.init(
+                    project=key_dict["project_id"],
+                    location="us-central1",
+                    credentials=credentials
+                )
+    
+                st.success("✅ AI services connected successfully!")
+                return True
+    
+        except Exception as e:
+            st.error(f"❌ Error connecting to AI services: {str(e)}")
+            return False
+
         """Initialize Google Cloud services"""
         try:
             # Load service account key
