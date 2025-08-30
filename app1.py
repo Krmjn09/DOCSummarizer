@@ -31,7 +31,7 @@ class LegalDocumentAI:
                 genai.configure(credentials=credentials)
                 self.model = genai.GenerativeModel('gemini-1.5-flash')
     
-                # Initialize Vertex AI (use key_dict directly, no file read)
+                # Initialize Vertex AI
                 aiplatform.init(
                     project=key_dict["project_id"],
                     location="us-central1",
@@ -40,11 +40,13 @@ class LegalDocumentAI:
     
                 st.success("✅ AI services connected successfully!")
                 return True
+            else:
+                st.error("❌ GCP_SERVICE_ACCOUNT not found in Streamlit secrets")
+                return False
     
         except Exception as e:
             st.error(f"❌ Error connecting to AI services: {str(e)}")
-            return False
-    
+            return False    
     def extract_text_from_file(self, uploaded_file):
         """Extract text from uploaded document (text-based files only)"""
         text = ""
