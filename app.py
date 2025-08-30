@@ -2,15 +2,12 @@ import streamlit as st
 import os
 from google.cloud import aiplatform
 import google.generativeai as genai
-from google.cloud import vision
 from google.oauth2 import service_account
 import PyPDF2
 import docx
 import io
 import json
-import base64
 import fitz  # PyMuPDF for better PDF handling
-from PIL import Image
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -33,9 +30,6 @@ class LegalDocumentAI:
                 genai.configure(credentials=credentials)
                 self.model = genai.GenerativeModel('gemini-1.5-flash')
                 
-                # Initialize Vision API client
-                self.vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-                
                 # Initialize Vertex AI
                 with open("service-account-key.json") as f:
                     key_data = json.load(f)
@@ -54,44 +48,8 @@ class LegalDocumentAI:
             st.error(f"❌ Error connecting to AI services: {str(e)}")
             return False
     
-    def extract_text_from_image(self, image_bytes):
-        """Extract text from image using Tesseract OCR"""
-        try:
-            # Convert bytes to PIL Image
-            image = Image.open(io.BytesIO(image_bytes))
-            
-            # Convert to RGB if needed
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            
-            # Convert PIL to numpy array for OpenCV
-            img_array = np.array(image)
-            
-            # Improve image quality for better OCR
-            # Convert to grayscale
-            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-            
-            # Apply threshold to get better contrast
-            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            
-            # Use Tesseract to extract text
-            text = pytesseract.image_to_string(thresh, lang='eng', config='--psm 6')
-            
-            return text.strip()
-            
-        except Exception as e:
-            # Silently handle OCR failures - don't show warning to user
-            # Fallback: try without image processing
-            try:
-                image = Image.open(io.BytesIO(image_bytes))
-                text = pytesseract.image_to_string(image)
-                return text.strip()
-            except:
-                # If OCR completely fails, return empty string silently
-                return ""
-    
     def extract_text_from_file(self, uploaded_file):
-        """Extract text from uploaded document with OCR support"""
+        """Extract text from uploaded document (text-based files only)"""
         text = ""
         
         try:
@@ -104,23 +62,9 @@ class LegalDocumentAI:
                     for page_num in range(pdf_document.page_count):
                         page = pdf_document[page_num]
                         
-                        # First try to extract text directly
+                        # Extract text directly from PDF
                         page_text = page.get_text()
-                        
-                        # If no text or very little text, use OCR on images
-                        if len(page_text.strip()) < 50:
-                            # Get page as image
-                            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # Higher resolution
-                            img_bytes = pix.tobytes("png")
-                            
-                            # Use OCR to extract text from image
-                            ocr_text = self.extract_text_from_image(img_bytes)
-                            if ocr_text:
-                                text += f"\n--- Page {page_num + 1} (OCR) ---\n{ocr_text}\n"
-                            else:
-                                text += page_text
-                        else:
-                            text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
+                        text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
                     
                     pdf_document.close()
                     
@@ -142,12 +86,9 @@ class LegalDocumentAI:
                 # Handle text files
                 text = uploaded_file.read().decode("utf-8")
                 
-            elif uploaded_file.type in ["image/jpeg", "image/png", "image/jpg"]:
-                # Handle image files directly
-                image_bytes = uploaded_file.read()
-                text = self.extract_text_from_image(image_bytes)
-                if not text:
-                    text = "No text found in the image."
+            else:
+                st.error(f"Unsupported file type: {uploaded_file.type}")
+                return ""
             
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
@@ -297,7 +238,7 @@ def main():
     # Sidebar for navigation
     st.sidebar.title("📋 How to Use")
     st.sidebar.markdown("""
-    1. **Upload** your legal document (PDF, Word, Text, or Image)
+    1. **Upload** your legal document (PDF, Word, or Text file)
     2. **Choose** what type of analysis you want:
        - 💡 **Simple Summary**: Plain English explanation
        - ⚠️ **Financial Risks**: Money-related dangers
@@ -322,8 +263,8 @@ def main():
     st.header("📄 Upload Your Legal Document")
     uploaded_file = st.file_uploader(
         "Choose your legal document", 
-        type=['pdf', 'docx', 'txt', 'jpg', 'jpeg', 'png'],
-        help="Supports PDF, Word docs, text files, and images with text"
+        type=['pdf', 'docx', 'txt'],
+        help="Supports PDF, Word docs, and text files with readable text"
     )
     
     if uploaded_file is not None:
