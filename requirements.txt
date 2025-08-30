@@ -2,7 +2,9 @@ streamlit
 google-cloud-aiplatform
 google-generativeai
 google-auth
+google-oauth2-tool
 PyPDF2
 python-docx
+PyMuPDF
 python-dotenv
-pymupdf
+fitz
